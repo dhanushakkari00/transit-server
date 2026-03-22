@@ -57,6 +57,7 @@ func AuthRequired() gin.HandlerFunc {
 		// Store claims and raw token in context for downstream handlers
 		c.Set("userID", claims.UserID)
 		c.Set("userEmail", claims.Email)
+		c.Set("userRole", claims.Role)
 		c.Set("token", tokenString)
 
 		c.Next()

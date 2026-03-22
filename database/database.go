@@ -40,7 +40,15 @@ func Connect() {
 	}
 
 	// Auto-migrate — creates tables and indexes defined in model struct tags
-	err = DB.AutoMigrate(&models.User{})
+	err = DB.AutoMigrate(
+		&models.User{},
+		&models.Driver{},
+		&models.Aggregator{},
+		&models.DriverAggregatorMapping{},
+		&models.Route{},
+		&models.Trip{},
+		&models.ActiveTrip{},
+	)
 	if err != nil {
 		log.Fatalf("Failed to auto-migrate database: %v", err)
 	}

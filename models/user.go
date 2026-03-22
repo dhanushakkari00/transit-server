@@ -11,6 +11,7 @@ type User struct {
 	PasswordHash     string     `gorm:"not null" json:"-"`
 	FirstName        string     `gorm:"index:idx_users_first_name;size:100" json:"first_name"`
 	LastName         string     `gorm:"size:100" json:"last_name"`
+	Role             string     `gorm:"index:idx_users_role;size:20;not null;default:'driver'" json:"role"`
 	IsActive         bool       `gorm:"default:true;index:idx_users_is_active" json:"is_active"`
 	ResetToken       string     `gorm:"index:idx_users_reset_token;size:255" json:"-"`
 	ResetTokenExpiry *time.Time `json:"-"`
@@ -23,15 +24,14 @@ func (User) TableName() string {
 	return "users"
 }
 
-// --- Request DTOs ---
+// Role constants
+const (
+	RoleDriver     = "driver"
+	RoleAggregator = "aggregator"
+	RoleAdmin      = "admin"
+)
 
-// RegisterRequest is the payload for user registration.
-type RegisterRequest struct {
-	Email     string `json:"email" binding:"required,email,max=255"`
-	Password  string `json:"password" binding:"required,min=8,max=72"`
-	FirstName string `json:"first_name" binding:"required,max=100"`
-	LastName  string `json:"last_name" binding:"max=100"`
-}
+// --- Request DTOs ---
 
 // LoginRequest is the payload for user login.
 type LoginRequest struct {
@@ -63,6 +63,7 @@ type UserResponse struct {
 	Email     string    `json:"email"`
 	FirstName string    `json:"first_name"`
 	LastName  string    `json:"last_name"`
+	Role      string    `json:"role"`
 	IsActive  bool      `json:"is_active"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -75,6 +76,7 @@ func (u *User) ToResponse() UserResponse {
 		Email:     u.Email,
 		FirstName: u.FirstName,
 		LastName:  u.LastName,
+		Role:      u.Role,
 		IsActive:  u.IsActive,
 		CreatedAt: u.CreatedAt,
 		UpdatedAt: u.UpdatedAt,

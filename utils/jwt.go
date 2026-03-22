@@ -14,6 +14,7 @@ import (
 type CustomClaims struct {
 	UserID uint   `json:"user_id"`
 	Email  string `json:"email"`
+	Role   string `json:"role"`
 	Type   string `json:"type"` // "access" or "refresh"
 	jwt.RegisteredClaims
 }
@@ -22,10 +23,11 @@ type CustomClaims struct {
 var tokenBlacklist sync.Map
 
 // GenerateAccessToken creates a short-lived JWT access token.
-func GenerateAccessToken(userID uint, email string) (string, error) {
+func GenerateAccessToken(userID uint, email, role string) (string, error) {
 	claims := CustomClaims{
 		UserID: userID,
 		Email:  email,
+		Role:   role,
 		Type:   "access",
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(config.AppConfig.JWTAccessTokenExpiry)),
@@ -39,10 +41,11 @@ func GenerateAccessToken(userID uint, email string) (string, error) {
 }
 
 // GenerateRefreshToken creates a long-lived JWT refresh token.
-func GenerateRefreshToken(userID uint, email string) (string, error) {
+func GenerateRefreshToken(userID uint, email, role string) (string, error) {
 	claims := CustomClaims{
 		UserID: userID,
 		Email:  email,
+		Role:   role,
 		Type:   "refresh",
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(config.AppConfig.JWTRefreshTokenExpiry)),
@@ -63,7 +66,6 @@ func ValidateToken(tokenString string) (*CustomClaims, error) {
 	}
 
 	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-		// Ensure the signing method is HMAC
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}

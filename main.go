@@ -7,13 +7,12 @@ import (
 	"transit-server/cache"
 	"transit-server/config"
 	"transit-server/database"
+	"transit-server/gtfsrt"
+	"transit-server/handlers"
 	"transit-server/routes"
 
 	"github.com/gin-gonic/gin"
 )
-
-// AppCache is the global in-memory cache available for general-purpose use.
-var AppCache *cache.Store
 
 func main() {
 	// Load configuration from .env / environment
@@ -22,18 +21,27 @@ func main() {
 	// Initialize database connection and run migrations
 	database.Connect()
 
-	// Initialize in-memory cache with 5-minute eviction cycle
-	AppCache = cache.New(5 * time.Minute)
-	defer AppCache.Close()
+	// Initialize in-memory cache with 30-second eviction cycle
+	appCache := cache.New(30 * time.Second)
+	defer appCache.Close()
 
-	// Create Gin router with default middleware (logger + recovery)
+	// Wire cache into location handlers
+	handlers.LocationCache = appCache
+
+	// Initialize GTFS-RT feed generator (OOP chain):
+	// DataSource (interface) → DBDataSource → FeedGenerator → Handler
+	dataSource := gtfsrt.NewDBDataSource(database.DB, appCache)
+	feedGenerator := gtfsrt.NewFeedGenerator(dataSource)
+	feedHandler := gtfsrt.NewHandler(feedGenerator)
+
+	// Create Gin router
 	router := gin.Default()
 
-	// CORS middleware — allow all origins in development
+	// CORS middleware
 	router.Use(func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-API-Key")
 
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
@@ -44,7 +52,7 @@ func main() {
 	})
 
 	// Register all routes
-	routes.RegisterRoutes(router)
+	routes.RegisterRoutes(router, feedHandler)
 
 	// Start the server
 	port := config.AppConfig.Port
