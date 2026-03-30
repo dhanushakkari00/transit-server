@@ -18,6 +18,7 @@ import (
 
 const inviteCodeChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 const inviteCodeLength = 5
+const apiKeyByteLength = 32
 
 // generateInviteCode creates a unique random 5-character alphanumeric code.
 func generateInviteCode() (string, error) {
@@ -40,6 +41,54 @@ func generateInviteCode() (string, error) {
 		}
 	}
 	return "", nil
+}
+
+// generateAPIKey creates a unique random 64-character hex API key.
+func generateAPIKey() (string, error) {
+	for attempts := 0; attempts < 10; attempts++ {
+		apiKeyBytes := make([]byte, apiKeyByteLength)
+		if _, err := rand.Read(apiKeyBytes); err != nil {
+			return "", err
+		}
+
+		apiKey := hex.EncodeToString(apiKeyBytes)
+
+		var count int64
+		database.DB.Model(&models.Aggregator{}).Where("api_key = ?", apiKey).Count(&count)
+		if count == 0 {
+			return apiKey, nil
+		}
+	}
+
+	return "", nil
+}
+
+func currentAggregator(c *gin.Context) (uint, models.Aggregator, bool) {
+	userIDValue, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
+			Error: "Authentication required",
+		})
+		return 0, models.Aggregator{}, false
+	}
+
+	userID, ok := userIDValue.(uint)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: "Invalid authentication context",
+		})
+		return 0, models.Aggregator{}, false
+	}
+
+	var aggregator models.Aggregator
+	if database.DB.Where("user_id = ?", userID).First(&aggregator).Error != nil {
+		c.JSON(http.StatusNotFound, models.ErrorResponse{
+			Error: "Aggregator profile not found",
+		})
+		return 0, models.Aggregator{}, false
+	}
+
+	return userID, aggregator, true
 }
 
 // AggregatorRegister creates a new aggregator account (user + aggregator profile + invite code).
@@ -94,16 +143,14 @@ func AggregatorRegister(c *gin.Context) {
 		return
 	}
 
-	// Generate API key (32 bytes = 64 hex chars)
-	apiKeyBytes := make([]byte, 32)
-	if _, err := rand.Read(apiKeyBytes); err != nil {
+	apiKey, err := generateAPIKey()
+	if err != nil || apiKey == "" {
 		log.Printf("Error generating API key: %v", err)
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error: "Internal server error",
+			Error: "Failed to generate API key",
 		})
 		return
 	}
-	apiKey := hex.EncodeToString(apiKeyBytes)
 
 	// Create user with aggregator role
 	user := models.User{
@@ -162,7 +209,10 @@ func AggregatorLogin(c *gin.Context) {
 // AggregatorMe returns the current aggregator's profile.
 // GET /api/v1/aggregator/me
 func AggregatorMe(c *gin.Context) {
-	userID, _ := c.Get("userID")
+	userID, aggregator, ok := currentAggregator(c)
+	if !ok {
+		return
+	}
 
 	var user models.User
 	if database.DB.First(&user, userID).Error != nil {
@@ -172,15 +222,63 @@ func AggregatorMe(c *gin.Context) {
 		return
 	}
 
-	var aggregator models.Aggregator
-	if database.DB.Where("user_id = ?", userID).First(&aggregator).Error != nil {
-		c.JSON(http.StatusNotFound, models.ErrorResponse{
-			Error: "Aggregator profile not found",
+	c.JSON(http.StatusOK, aggregator.ToResponse(user))
+}
+
+// AggregatorAPIKey returns the current aggregator API key and invite code.
+// GET /api/v1/aggregator/api-key
+func AggregatorAPIKey(c *gin.Context) {
+	_, aggregator, ok := currentAggregator(c)
+	if !ok {
+		return
+	}
+
+	c.JSON(http.StatusOK, models.AggregatorAPIKeyResponse{
+		APIKey:     aggregator.APIKey,
+		InviteCode: aggregator.InviteCode,
+		UpdatedAt:  aggregator.UpdatedAt,
+	})
+}
+
+// RotateAggregatorAPIKey regenerates the current aggregator API key.
+// PUT /api/v1/aggregator/api-key
+func RotateAggregatorAPIKey(c *gin.Context) {
+	_, aggregator, ok := currentAggregator(c)
+	if !ok {
+		return
+	}
+
+	apiKey, err := generateAPIKey()
+	if err != nil || apiKey == "" {
+		log.Printf("Error rotating API key: %v", err)
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: "Failed to rotate API key",
 		})
 		return
 	}
 
-	c.JSON(http.StatusOK, aggregator.ToResponse(user))
+	if err := database.DB.Model(&aggregator).Update("api_key", apiKey).Error; err != nil {
+		log.Printf("Error updating API key: %v", err)
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: "Failed to update API key",
+		})
+		return
+	}
+
+	if err := database.DB.First(&aggregator, aggregator.ID).Error; err != nil {
+		log.Printf("Error loading rotated API key: %v", err)
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: "API key updated but failed to reload aggregator profile",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":     "API key rotated successfully",
+		"api_key":     aggregator.APIKey,
+		"invite_code": aggregator.InviteCode,
+		"updated_at":  aggregator.UpdatedAt,
+	})
 }
 
 // ListDrivers returns all drivers mapped to the current aggregator.

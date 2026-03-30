@@ -57,7 +57,19 @@ func RegisterRoutes(router *gin.Engine, feedHandler *gtfsrt.Handler, wsHandler *
 			aggregator.POST("/register", handlers.AggregatorRegister)
 			aggregator.POST("/login", handlers.AggregatorLogin)
 
-			// All aggregator protected routes require JWT + API Key + role
+			// Profile and API key management require only JWT + role.
+			aggAuthOnly := aggregator.Group("")
+			aggAuthOnly.Use(
+				middleware.AuthRequired(),
+				middleware.RequireRole(models.RoleAggregator, models.RoleAdmin),
+			)
+			{
+				aggAuthOnly.GET("/me", handlers.AggregatorMe)
+				aggAuthOnly.GET("/api-key", handlers.AggregatorAPIKey)
+				aggAuthOnly.PUT("/api-key", handlers.RotateAggregatorAPIKey)
+			}
+
+			// All other aggregator routes require JWT + matching API key + role.
 			aggProtected := aggregator.Group("")
 			aggProtected.Use(
 				middleware.AuthRequired(),
@@ -65,8 +77,6 @@ func RegisterRoutes(router *gin.Engine, feedHandler *gtfsrt.Handler, wsHandler *
 				middleware.RequireRole(models.RoleAggregator, models.RoleAdmin),
 			)
 			{
-				aggProtected.GET("/me", handlers.AggregatorMe)
-
 				// Driver management
 				aggProtected.GET("/drivers", handlers.ListDrivers)
 				aggProtected.GET("/drivers/locations", handlers.GetAllDriverLocations)

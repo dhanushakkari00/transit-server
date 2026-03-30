@@ -48,6 +48,13 @@ type AggregatorResponse struct {
 	UpdatedAt   time.Time    `json:"updated_at"`
 }
 
+// AggregatorAPIKeyResponse is the API key payload for self-service key retrieval.
+type AggregatorAPIKeyResponse struct {
+	APIKey     string    `json:"api_key"`
+	InviteCode string    `json:"invite_code"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
 // ToResponse converts an Aggregator model to an AggregatorResponse DTO.
 func (a *Aggregator) ToResponse(user User) AggregatorResponse {
 	return AggregatorResponse{

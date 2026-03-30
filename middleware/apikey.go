@@ -33,6 +33,25 @@ func APIKeyRequired() gin.HandlerFunc {
 			return
 		}
 
+		if userIDValue, exists := c.Get("userID"); exists {
+			userID, ok := userIDValue.(uint)
+			if !ok {
+				c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+					Error: "Invalid authentication context",
+				})
+				c.Abort()
+				return
+			}
+
+			if aggregator.UserID != userID {
+				c.JSON(http.StatusForbidden, models.ErrorResponse{
+					Error: "API key does not belong to authenticated user",
+				})
+				c.Abort()
+				return
+			}
+		}
+
 		// Store aggregator info in context
 		c.Set("apiKeyAggregatorID", aggregator.ID)
 		c.Set("apiKeyUserID", aggregator.UserID)

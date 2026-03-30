@@ -65,7 +65,8 @@ Every HTTP request must include the appropriate headers:
 |----------|---------|
 | Public endpoints (register, login, refresh, forgot/reset-password) | `Content-Type: application/json` |
 | Driver endpoints (after login) | `Content-Type: application/json` + `Authorization: Bearer <access_token>` |
-| Aggregator endpoints (after login) | `Content-Type: application/json` + `Authorization: Bearer <access_token>` + `X-API-Key: <api_key>` |
+| Aggregator profile + key endpoints | `Content-Type: application/json` + `Authorization: Bearer <access_token>` |
+| Other aggregator endpoints | `Content-Type: application/json` + `Authorization: Bearer <access_token>` + `X-API-Key: <api_key>` |
 | WebSocket connection | Auth passed as **query params**, not headers (see Section 13) |
 
 ---
@@ -971,11 +972,14 @@ End the driver's current active trip.
 
 ## 9. API Endpoints - Aggregator Profile
 
-> **All aggregator endpoints (Sections 9-12) require BOTH headers:**
+> **Profile and API key management endpoints in this section require only:**
 > - `Authorization: Bearer <access_token>` (user role must be `aggregator` or `admin`)
+>
+> **Aggregator management endpoints in Sections 10-12 require BOTH headers:**
+> - `Authorization: Bearer <access_token>`
 > - `X-API-Key: <api_key>`
 >
-> The server validates that the JWT user matches the API key owner. If they don't match → `403`.
+> For endpoints that require both, the server validates that the JWT user matches the API key owner. If they don't match → `403`.
 
 ### `GET /api/v1/aggregator/me`
 
@@ -1007,6 +1011,37 @@ Returns the full aggregator profile, including the `invite_code` and `api_key`.
 ```
 
 **You must call this after every login** to get the `api_key` (needed for all subsequent aggregator API calls and WebSocket connections) and `invite_code` (to display/share with drivers).
+
+### `GET /api/v1/aggregator/api-key`
+
+Returns only the current aggregator API key payload.
+
+**Request Body:** None
+
+**Response** `200 OK`
+```json
+{
+  "api_key": "a3f8b2c1d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1",
+  "invite_code": "A1B2C",
+  "updated_at": "2026-03-31T10:00:00Z"
+}
+```
+
+### `PUT /api/v1/aggregator/api-key`
+
+Rotates the current aggregator API key and returns the new value.
+
+**Request Body:** None
+
+**Response** `200 OK`
+```json
+{
+  "message": "API key rotated successfully",
+  "api_key": "b7e2c4a1d9e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a4",
+  "invite_code": "A1B2C",
+  "updated_at": "2026-03-31T10:05:00Z"
+}
+```
 
 ---
 
