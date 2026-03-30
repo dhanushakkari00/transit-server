@@ -9,12 +9,16 @@ import (
 	"transit-server/cache"
 	"transit-server/database"
 	"transit-server/models"
+	"transit-server/ws"
 
 	"github.com/gin-gonic/gin"
 )
 
 // LocationCache is the global cache reference for location data.
 var LocationCache *cache.Store
+
+// LiveHub is the WebSocket hub for broadcasting live location updates.
+var LiveHub *ws.Hub
 
 const locationTTL = 60 * time.Second
 
@@ -64,6 +68,11 @@ func UpdateLocation(c *gin.Context) {
 		"last_speed":   req.Speed,
 		"last_seen_at": now,
 	})
+
+	// 3. Broadcast to WebSocket subscribers
+	if LiveHub != nil {
+		LiveHub.Broadcast(driver.ID, loc)
+	}
 
 	c.JSON(http.StatusOK, models.MessageResponse{Message: "Location updated"})
 }

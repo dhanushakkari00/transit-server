@@ -10,6 +10,7 @@ import (
 	"transit-server/gtfsrt"
 	"transit-server/handlers"
 	"transit-server/routes"
+	"transit-server/ws"
 
 	"github.com/gin-gonic/gin"
 )
@@ -28,11 +29,20 @@ func main() {
 	// Wire cache into location handlers
 	handlers.LocationCache = appCache
 
+	// Initialize WebSocket hub for live location push
+	hub := ws.NewHub()
+	go hub.Run()
+	defer hub.Stop()
+	handlers.LiveHub = hub
+
 	// Initialize GTFS-RT feed generator (OOP chain):
 	// DataSource (interface) → DBDataSource → FeedGenerator → Handler
 	dataSource := gtfsrt.NewDBDataSource(database.DB, appCache)
 	feedGenerator := gtfsrt.NewFeedGenerator(dataSource)
 	feedHandler := gtfsrt.NewHandler(feedGenerator)
+
+	// Initialize WebSocket handler
+	wsHandler := ws.NewHandler(hub)
 
 	// Create Gin router
 	router := gin.Default()
@@ -52,7 +62,7 @@ func main() {
 	})
 
 	// Register all routes
-	routes.RegisterRoutes(router, feedHandler)
+	routes.RegisterRoutes(router, feedHandler, wsHandler)
 
 	// Start the server
 	port := config.AppConfig.Port

@@ -5,12 +5,13 @@ import (
 	"transit-server/handlers"
 	"transit-server/middleware"
 	"transit-server/models"
+	"transit-server/ws"
 
 	"github.com/gin-gonic/gin"
 )
 
 // RegisterRoutes sets up all API routes.
-func RegisterRoutes(router *gin.Engine, feedHandler *gtfsrt.Handler) {
+func RegisterRoutes(router *gin.Engine, feedHandler *gtfsrt.Handler, wsHandler *ws.Handler) {
 	// Health check
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
@@ -84,6 +85,9 @@ func RegisterRoutes(router *gin.Engine, feedHandler *gtfsrt.Handler) {
 				aggProtected.GET("/feed/vehicle-positions/:driverId", feedHandler.ServeFeedForVehicle)
 				aggProtected.GET("/feed/vehicle-positions/:driverId/debug", feedHandler.ServeDebugFeedForVehicle)
 			}
+
+			// WebSocket subscribe — auth done inside handler via query params
+			aggregator.GET("/subscribe", wsHandler.HandleSubscribe)
 		}
 	}
 }
