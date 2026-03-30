@@ -13,6 +13,7 @@ type Config struct {
 	JWTSecret             string
 	JWTAccessTokenExpiry  time.Duration
 	JWTRefreshTokenExpiry time.Duration
+	DatabaseURL           string
 	DBPath                string
 	Port                  string
 }
@@ -39,6 +40,7 @@ func Load() {
 		JWTSecret:             getEnv("JWT_SECRET", ""),
 		JWTAccessTokenExpiry:  accessExpiry,
 		JWTRefreshTokenExpiry: refreshExpiry,
+		DatabaseURL:           getEnv("DATABASE_URL", ""),
 		DBPath:                getEnv("DB_PATH", "transit.db"),
 		Port:                  getEnv("PORT", "8080"),
 	}
