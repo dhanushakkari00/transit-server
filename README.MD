@@ -72,7 +72,6 @@ PORT=8080
 | `JWT_ACCESS_TOKEN_EXPIRY` | | `15m` | Access token lifetime |
 | `JWT_REFRESH_TOKEN_EXPIRY` | | `168h` | Refresh token lifetime (7 days) |
 | `DATABASE_URL` | | — | PostgreSQL connection string |
-| `DB_PATH` | | `transit.db` | SQLite file path (used when `DATABASE_URL` is not set) |
 | `PORT` | | `8080` | HTTP server port |
 
 ### 3. Install dependencies
