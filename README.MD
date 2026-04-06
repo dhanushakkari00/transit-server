@@ -172,7 +172,3 @@ Base URL: `/api/v1`
 - **GTFS-RT:** [Protocol Buffers](https://github.com/MobilityData/gtfs-realtime-bindings)
 
 ---
-
-## 📄 License
-
-This project is unlicensed. Add a `LICENSE` file to specify terms.
